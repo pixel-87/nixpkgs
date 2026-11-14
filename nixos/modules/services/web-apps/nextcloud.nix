@@ -23,7 +23,6 @@ let
     "opcache.revalidate_freq" = "1";
     "opcache.fast_shutdown" = "1";
     "openssl.cafile" = config.security.pki.caBundle;
-    catch_workers_output = "yes";
   };
 
   appStores = {
@@ -1315,6 +1314,7 @@ in
             upload_max_filesize = cfg.maxUploadSize;
             post_max_size = cfg.maxUploadSize;
             memory_limit = cfg.maxUploadSize;
+            error_log = "syslog";
           }
           (lib.mkIf cfg.caching.apcu {
             "apc.enable_cli" = "1";
@@ -1440,6 +1440,15 @@ in
               restartTriggers = [ overrideConfig ];
               script = ''
                 export OCC_BIN="${lib.getExe occ}"
+
+                if $OCC_BIN maintenance:mode | grep enabled; then
+                  echo "This is possibly the result of an earlier failed update."
+                  echo "nextcloud-setup performs commands that need maintenance mode to be disabled."
+                  echo "We will not disable maintenance mode on your behalf out of caution."
+                  echo "You can disable maintenance mode interactively with:"
+                  echo "  $OCC_BIN maintenance:mode --off"
+                  exit 1
+                fi
 
                 ${lib.optionalString (c.dbpassFile != null) ''
                   if [ -z "$(<"$CREDENTIALS_DIRECTORY/dbpass")" ]; then
